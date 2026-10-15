@@ -2,6 +2,8 @@
 
 A standalone client script. No Studio installation, developer account, allowlist, or server component is required. Studio was used to inspect the supplied GPO Game HUB copy and test fixtures. This repository contains the original panel code, not the copied game scripts.
 
+Version 1.1 adds **OVERDRIVE**: a compact 560 × 420 RGB panel with an animated spectrum, Bangers / arcade typography, horizontal tabs, two-column controls, compact stat fields, and short labels. Explanations are in hover tooltips. Reset costs and stat-change confirmation remain explicit.
+
 ## Execute
 
 ```lua
@@ -63,8 +65,8 @@ Settings and profiles save automatically to `GPOFieldKit/config-<game-id>-<user-
 
 - Luau 0.740: main, bootstrap, and test scripts compile.
 - **21 pure Luau tests pass**: numerical validation, total point conservation, reset planning, saved settings, conflicting bindings, exact identity matching, and movement at 15/30/60/144/240 FPS.
-- **39 Roblox Studio client fixture checks pass**: startup, all tabs, collapse/expand, motion, wall collision, midair Anchor, cleanup, chest/trainer/medal lifecycle, unknown-style handling, stat preview, sequential allocation, reset essence consumption, native swim baseline changes/nonstacking/restoration, death and unload.
-- UI preview inspected visually; `manage_ui.check` reports zero findings.
+- **39 Roblox Studio client fixture checks passed on v1.0**: startup, all tabs, collapse/expand, motion, wall collision, midair Anchor, cleanup, chest/trainer/medal lifecycle, unknown-style handling, stat preview, sequential allocation, reset essence consumption, native swim baseline changes/nonstacking/restoration, death and unload.
+- The v1.1 compact RGB UI compiles, passes the 21 core tests, and was inspected visually. The v1.1 Studio regression was interrupted when Studio was closed; it is not claimed as passed. The compact controls target desktop use.
 
 The stat test server is a deliberately simple test double using the observed remote protocol, **not the real GPO server**. Actual live chest spawns, medal metadata, multiplayer health/fruit changes, custom swimming, teleporting, filesystem access in Potassium, and live stat acceptance remain to be verified in-game. Fixture reports are in [docs](docs/).
 

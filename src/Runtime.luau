@@ -308,7 +308,7 @@ local function updateMarkers()
             r.m.label.Text=name.."  |  "..math.floor(r.distance).." st";r.m.label.Visible=true
         end
     end
-    if countsLabel then countsLabel.Text=string.format("STREAMED    Chests: %d legendary · %d mythic\nMedals: %d Black Leg · %d style/spawn · %d other",counts.legendary,counts.mythic,counts.blackleg,counts.styleMedals,counts.medals) end
+    if countsLabel then countsLabel.Text=string.format("LEG %d   MYTH %d   BLACK LEG %d   STYLE %d   MEDAL %d",counts.legendary,counts.mythic,counts.blackleg,counts.styleMedals,counts.medals) end
 end
 -- Player overlays have one registry and event-driven health/fruit updates.
 local function removeOverlay(p)
@@ -359,11 +359,12 @@ track(Players.PlayerRemoving:Connect(function(p) removeOverlay(p);for _,c in ipa
 local oldStop=state.stop
 function state.stop() for _,cs in pairs(playerConnections) do for _,c in ipairs(cs) do c:Disconnect() end end;oldStop() end
 local pages=ui.pages
-ui:heading(pages.ESP,"Read the world","Separate categories. Nearest labels take priority when markers overlap.")
-countsLabel=ui:note(pages.ESP,"Discovering streamed objects…",48)
-for _,entry in ipairs({{"legendary","Legendary chests"},{"mythic","Mythic chests"},{"blackleg","Black Leg medals"},{"styleMedals","All fighting-style medals & spawn beams"},{"medals","Other spawned medallions"},{"trainers","Verified trainers"}}) do
+ui:heading(pages.ESP,"Radar","Separate categories. Nearest labels take priority when markers overlap.")
+countsLabel=ui:note(pages.ESP,"SCANNING…",22)
+local espControls=ui:grid(pages.ESP)
+for _,entry in ipairs({{"legendary","Legendary chests"},{"mythic","Mythic chests"},{"blackleg","Black Leg medals"},{"styleMedals","All style medals"},{"medals","Other medals"},{"trainers","Trainers"}}) do
     local key,label=entry[1],entry[2]
-    ui:toggle(pages.ESP,label,function() return config[key] end,function(on) config[key]=on;scheduleSave();updateMarkers() end,"Tracks exact known identities as objects stream in and out. It cannot reveal objects absent from this client.")
+    ui:toggle(espControls,label,function() return config[key] end,function(on) config[key]=on;scheduleSave();updateMarkers() end,"Tracks exact known identities as objects stream in and out. It cannot reveal objects absent from this client.")
 end
 local function numeric(page,label,key,min,max)
     ui:field(page,label,config[key],function(value,box) local n=tonumber(value)
@@ -371,25 +372,29 @@ local function numeric(page,label,key,min,max)
         box.Text=tostring(config[key])
     end)
 end
-numeric(pages.ESP,"Distance limit · 0 = unlimited","distance",0,100000)
-numeric(pages.ESP,"Maximum visible markers","markerLimit",5,80)
-ui:note(pages.ESP,"Medals follow the game's spawnfs / spawnMedal events. Black Leg needs an explicit pickup identity; enable all styles for unidentified beams. Existing beams last 21 seconds; pickup events track the object until it leaves the world. Streaming still applies.",96)
-ui:heading(pages.Movement,"Control your motion","Forward movement adds a collision-checked displacement in studs per second. It does not change WalkSpeed.")
-refreshForward=ui:toggle(pages.Movement,"Forward movement",function() return state.forward end,setForward,"Starts off after loading, death, respawn, and teleport. Enabling it releases Anchor.")
-ui:slider(pages.Movement,"Forward · studs / second",function() return config.speed end,function(v) config.speed=v;scheduleSave() end,1,150,UIS,track)
+local espFields=ui:grid(pages.ESP,2,28)
+numeric(espFields,"Range · 0 = all","distance",0,100000)
+numeric(espFields,"Markers","markerLimit",5,80)
+local streamingNote=ui:note(pages.ESP,"STREAMED ONLY  /  LIVE SPAWNS",20)
+ui:hint(streamingNote,"Medals follow spawnfs / spawnMedal. Black Leg needs an explicit pickup identity; enable all styles for unidentified beams. Existing beams last 21 seconds. Pickup markers follow object lifetime. Streaming still applies.")
+ui:heading(pages.Movement,"Motion","Forward adds collision-checked displacement, independent of WalkSpeed.")
+local motionControls=ui:grid(pages.Movement)
+refreshForward=ui:toggle(motionControls,"Forward",function() return state.forward end,setForward,"Starts off after loading, death, respawn, and teleport. Enabling it releases Anchor.")
+ui:slider(pages.Movement,"Studs / sec",function() return config.speed end,function(v) config.speed=v;scheduleSave() end,1,150,UIS,track)
 local directionButton
-directionButton=UI.button(pages.Movement,"Forward follows: "..config.forwardMode,function() config.forwardMode=config.forwardMode=="Character" and "Camera" or "Character";directionButton.Text="Forward follows: "..config.forwardMode;scheduleSave() end)
+directionButton=UI.button(motionControls,"Direction: "..config.forwardMode,function() config.forwardMode=config.forwardMode=="Character" and "Camera" or "Character";directionButton.Text="Direction: "..config.forwardMode;scheduleSave() end)
 ui:hint(directionButton,"Character follows the avatar's horizontal facing; Camera follows the camera's horizontal facing. Neither mode adds vertical flight.")
-refreshAnchor=ui:toggle(pages.Movement,"Anchor in place",function() return state.anchor end,setAnchor,"Freezes at the current location, including mid-air. Turning it off restores the prior anchored and auto-rotate properties.")
-ui:toggle(pages.Movement,"Native swimming +10%",function() return config.swim end,function(on) config.swim=on;if not on then clearSwim() end;scheduleSave() end,"Only Roblox's native Swimming state is supported. The copied game lacks its custom swimming-speed controller.")
-local swimLabel=ui:note(pages.Movement,"Swim boost is waiting for native Swimming state.",48)
-UI.button(pages.Movement,"Stop movement & release anchor",function() safetyReset();status("Movement stopped and anchor released.") end)
-ui:heading(pages.Players,"Know who is nearby","Fixed-size labels above heads. Fruit comes from Stats<player>.Stats.DF; unavailable data is shown as Unknown.")
+refreshAnchor=ui:toggle(motionControls,"Anchor",function() return state.anchor end,setAnchor,"Freezes at the current location, including mid-air. Turning it off restores the prior anchored and auto-rotate properties.")
+ui:toggle(motionControls,"Native swim +10%",function() return config.swim end,function(on) config.swim=on;if not on then clearSwim() end;scheduleSave() end,"Only Roblox's native Swimming state is supported. The copied game lacks its custom swimming-speed controller.")
+local swimLabel=ui:note(pages.Movement,"SWIM · IDLE",20)
+UI.button(pages.Movement,"STOP ALL MOTION",function() safetyReset();status("Motion stopped.") end,true)
+ui:heading(pages.Players,"Players","Health and fruit labels follow respawns. Fruit reads Stats<player>.Stats.DF; missing data shows Unknown.")
 local function updatePlayers() for _,o in pairs(state.overlays) do o.update() end;scheduleSave() end
-ui:toggle(pages.Players,"Health bar & exact health",function() return config.health end,function(on) config.health=on;updatePlayers() end)
-ui:toggle(pages.Players,"Eaten fruit",function() return config.fruit end,function(on) config.fruit=on;updatePlayers() end)
-numeric(pages.Players,"Overlay distance","playerDistance",50,10000)
-ui:note(pages.Players,"At a distance only the nearest 20 eligible player overlays are shown. Names, health and fruit update after respawns.",48)
+local playerControls=ui:grid(pages.Players)
+ui:toggle(playerControls,"Health",function() return config.health end,function(on) config.health=on;updatePlayers() end)
+ui:toggle(playerControls,"Fruit",function() return config.fruit end,function(on) config.fruit=on;updatePlayers() end)
+numeric(pages.Players,"Range","playerDistance",50,10000)
+ui:note(pages.Players,"NEAREST 20  /  LIVE HP + FRUIT",20)
 -- Profile application uses only the inspected remote, never writes replicated stats directly.
 local selectedProfile
 local editor,pageInfo,nameInput,profileList
@@ -477,20 +482,20 @@ local function preview()
     local count=essenceCount()
     if plan.reset then
         if not count or count<1 then status("This profile needs a reset. No verified SP Reset Essence is available. Use the game's reset UI first.");return end
-        table.insert(lines,"\nCOST: consumes 1 SP Reset Essence.\nReset must be confirmed before allocation starts. There is no Robux purchase in this panel.")
-    else table.insert(lines,"\nNo reset cost. Only currently unspent points will be used.") end
-    table.insert(lines,"The live server enforces additional caps and eligibility. A rejection stops the sequence; already-confirmed points are not rolled back.")
-    ui:confirm("Review stat changes",table.concat(lines,"\n"),function() runProfile(before,plan,count) end)
+        table.insert(lines,"\nCOST: 1 SP Reset Essence. Reset first, then allocate.")
+    else table.insert(lines,"\nCOST: no reset. Uses unspent points.") end
+    table.insert(lines,"Server rejection stops allocation. Confirmed changes remain.")
+    ui:confirm("Apply build?",table.concat(lines,"\n"),function() runProfile(before,plan,count) end)
 end
 local rebuildProfiles
-ui:heading(pages["Stat Profiles"],"Build your loadout","Named point targets. Preview before applying; every allocation waits for the server to confirm.")
-pageInfo=ui:note(pages["Stat Profiles"],"",48)
-nameInput=ui:field(pages["Stat Profiles"],"Profile name","",nil)
+ui:heading(pages["Stat Profiles"],"Builds","Named stat targets. Preview before applying; every allocation waits for server confirmation.")
+pageInfo=ui:note(pages["Stat Profiles"],"",24)
+nameInput=ui:field(pages["Stat Profiles"],"Name","",nil)
 local chooseBox=UI.make("Frame",{Name="SavedProfiles",BackgroundTransparency=1,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y},pages["Stat Profiles"])
 UI.make("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.Name},chooseBox)
 profileList=chooseBox
 editor=UI.make("Frame",{Name="ProfileEditor",BackgroundTransparency=1,Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y},pages["Stat Profiles"])
-UI.make("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder},editor)
+UI.make("UIGridLayout",{CellSize=UDim2.new(0.5,-3,0,28),CellPadding=UDim2.fromOffset(6,6),SortOrder=Enum.SortOrder.LayoutOrder},editor)
 local names={};for key in pairs(schema) do table.insert(names,key) end;table.sort(names)
 for i,key in ipairs(names) do local field,row=ui:field(editor,key,0,nil);row.LayoutOrder=i;fields[key]=field end
 local function loadProfile(name)
@@ -514,27 +519,29 @@ local function storeProfile(duplicate)
     if selectedProfile and not duplicate and selectedProfile~=name then config.profiles[selectedProfile]=nil end
     config.profiles[name]=values;selectedProfile=name;rebuildProfiles();scheduleSave();status("Saved profile: "..name)
 end
-UI.button(pages["Stat Profiles"],"New profile",function() selectedProfile=nil;nameInput.Text="";for _,b in pairs(fields) do b.Text="0" end;status("Enter a name and point targets, then save.") end)
-UI.button(pages["Stat Profiles"],"Save / rename profile",function() storeProfile(false) end,true)
-UI.button(pages["Stat Profiles"],"Duplicate under entered name",function() storeProfile(true) end)
-UI.button(pages["Stat Profiles"],"Capture current allocations",function() local snap,err=snapshot();if not snap then status(err);return end;for k,b in pairs(fields) do b.Text=tostring(snap.current[k] or 0) end;status("Current allocations captured. Enter a name and save.") end)
-UI.button(pages["Stat Profiles"],"Preview & apply",preview,true)
-UI.button(pages["Stat Profiles"],"Delete selected profile",function()
+local profileActions=ui:grid(pages["Stat Profiles"],3)
+UI.button(profileActions,"NEW",function() selectedProfile=nil;nameInput.Text="";for _,b in pairs(fields) do b.Text="0" end;status("New build. Set name and targets.") end)
+UI.button(profileActions,"SAVE / RENAME",function() storeProfile(false) end,true)
+UI.button(profileActions,"DUPLICATE",function() storeProfile(true) end)
+UI.button(profileActions,"CAPTURE",function() local snap,err=snapshot();if not snap then status(err);return end;for k,b in pairs(fields) do b.Text=tostring(snap.current[k] or 0) end;status("Current stats captured.") end)
+UI.button(profileActions,"APPLY",preview,true)
+UI.button(profileActions,"DELETE",function()
     if not selectedProfile then status("Select a saved profile first.");return end
     local name=selectedProfile;ui:confirm("Delete profile",name.." will be removed from your saved profiles.",function() config.profiles[name]=nil;selectedProfile=nil;rebuildProfiles();scheduleSave();status("Profile deleted.") end)
 end)
 rebuildProfiles()
-ui:heading(pages.Settings,"Make it yours","Keybinds ignore text input. Settings and profiles save to Potassium's workspace; movement actions always start off.")
-for _,entry in ipairs({{"forward","Forward toggle"},{"anchor","Anchor toggle"},{"panel","Show / hide panel"}}) do
+ui:heading(pages.Settings,"Setup","Keys ignore typing. Settings save in Potassium's workspace. Movement starts off.")
+for _,entry in ipairs({{"forward","Forward"},{"anchor","Anchor"},{"panel","Panel"}}) do
     local key,label=entry[1],entry[2]
     local b
     b=UI.button(pages.Settings,label..": "..config.keys[key],function() state.capture=key;captureButton=b;captureLabel=label;b.Text="Press a key · Esc cancels";status("Choose a key for "..label..".") end)
 end
-ui:note(pages.Settings,"Configuration: "..configPath,60)
-UI.button(pages.Settings,"Save now",save)
-UI.button(pages.Settings,"Show last pickup event",function() status(state.lastPickupEvent or "No medal spawn event received since loading.") end)
-UI.button(pages.Settings,"Unload & clean up",function() state.stop() end)
-ui:note(pages.Settings,"Field Kit "..Core.Version.."\nInspected: GPO Game HUB. Stat and combat server handlers are absent from the local copy; live behavior must be verified in-game.",64)
+local settingsActions=ui:grid(pages.Settings,3)
+UI.button(settingsActions,"SAVE",save)
+UI.button(settingsActions,"PICKUP LOG",function() status(state.lastPickupEvent or "No pickup event yet.") end)
+UI.button(settingsActions,"UNLOAD",function() state.stop() end)
+local versionLabel=ui:note(pages.Settings,"OVERDRIVE  /  "..Core.Version,20)
+ui:hint(versionLabel,"Configuration: "..configPath..". Live-server behavior requires in-game verification.")
 -- One movement callback and one throttled presentation update, no per-marker loops.
 local params=RaycastParams.new();params.FilterType=Enum.RaycastFilterType.Exclude;params.RespectCanCollide=true;params.IgnoreWater=true
 track(Run.PreSimulation:Connect(function(dt)
@@ -574,7 +581,7 @@ track(Run.Heartbeat:Connect(function(dt)
         local camera=workspace.CurrentCamera
         local origin=r and r.Position or camera and camera.CFrame.Position or Vector3.zero
         local customSwimming=_G.swimming==true and not nativeSwimming
-        swimLabel.Text=state.anchor and "Swim boost paused while anchored." or customSwimming and "Custom swimming detected: speed controller unavailable; no boost applied." or nativeSwimming and config.swim and "Native swim boost active · +10% of current baseline." or "Swim boost waiting for native Swimming state."
+        swimLabel.Text=state.anchor and "SWIM · PAUSED" or customSwimming and "CUSTOM SWIM · UNSUPPORTED" or nativeSwimming and config.swim and "NATIVE SWIM · +10%" or "SWIM · IDLE"
         local eligible={}
         for p,o in pairs(state.overlays) do
             o.billboard.Enabled=false;o.billboard.MaxDistance=config.playerDistance;o.refreshFruit()
@@ -584,11 +591,11 @@ track(Run.Heartbeat:Connect(function(dt)
         table.sort(eligible,function(a,b) return a.d<b.d end)
         for i=1,math.min(20,#eligible) do eligible[i].o.billboard.Enabled=true end
         local snap,err=snapshot()
-        if snap then local allocated=0;for _,v in pairs(snap.current) do allocated+=v end;pageInfo.Text=string.format("Available: %d  ·  Allocated: %d\nAdditional per-stat caps are enforced by the live server.",snap.available,allocated) else pageInfo.Text=err end
+        if snap then local allocated=0;for _,v in pairs(snap.current) do allocated+=v end;pageInfo.Text=string.format("FREE %d  /  SPENT %d",snap.available,allocated) else pageInfo.Text="STATS UNAVAILABLE" end
     end
 end))
 -- Initial UI status and a direct API for repeatable Studio fixture tests.
 state.setForward=setForward;state.setAnchor=setAnchor;state.safetyReset=safetyReset;state.inspect=inspect;state.updateMarkers=updateMarkers;state.ui=ui;state.snapshot=snapshot
 state.preview=preview;state.fields=fields;state.Core=Core;state.applyProfile=runProfile;state.pickupEvent=pickupEvent
-status("Ready • forward / anchor OFF • "..storageMessage)
+status("READY  /  FORWARD + ANCHOR OFF")
 return state

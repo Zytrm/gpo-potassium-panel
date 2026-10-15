@@ -1,5 +1,5 @@
 local Core = {}
-Core.Version = "1.0.0"
+Core.Version = "1.1.0"
 -- Verified in ReplicatedStorage.Modules.Leveling.statValues in the inspected copy.
 Core.StatNames = {"Strength", "Defense", "Stamina", "GunMastery", "SwordMastery", "RokushikiMastery", "BlackLegMastery", "ElectroMastery", "DevilFruitMastery", "FishmanKarateMastery", "DragonClawMastery", "CyborgMastery", "FightingStyleMastery"}
 Core.Chests = {
