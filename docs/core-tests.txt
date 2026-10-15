@@ -17,6 +17,15 @@ PASS profiles survive valid config roundtrip
 PASS configuration has independent nested state
 PASS movement is frame-rate independent
 PASS large frame stalls are bounded
-PASS chest matching excludes blueprints and unrelated names
+PASS all four referenced chest meshes classify
+PASS chest identity comes from mesh, not name
+PASS unknown meshes and nonmodel chests are ignored
+PASS every child mesh is considered
+PASS ambiguous chest mesh combinations are rejected
+PASS mesh asset URI formats normalize
+PASS Black Leg uses the referenced pickup name
+PASS referenced style medal names classify
+PASS generic medal detector excludes the temporary beam
+PASS new chest preferences persist
 PASS trainer catalogue uses exact identities
-21 tests passed
+30 tests passed

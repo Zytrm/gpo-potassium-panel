@@ -32,7 +32,7 @@ local function run()
     wall:Destroy()
     state.safetyReset();check("safety reset clears actions",not state.forward and not state.anchor and root.Anchored==wasAnchored)
     local chest=Instance.new("Model");chest.Name="Legendary Fruit Chest"
-    local part=Instance.new("Part");part.Anchored=true;part.Position=root.Position+Vector3.new(0,0,-20);part.Parent=chest;chest.PrimaryPart=part;chest.Parent=workspace
+    local part=Instance.new("MeshPart");part.MeshId="rbxassetid://10798559852";part.Anchored=true;part.Position=root.Position+Vector3.new(0,0,-20);part.Parent=chest;chest.PrimaryPart=part;chest.Parent=workspace.Effects
     task.wait(0.2);check("spawned chest registered",state.markers[chest] and state.markers[chest].category=="legendary")
     chest:Destroy();task.wait(0.1);check("destroyed chest removed",state.markers[chest]==nil)
     local fake=Instance.new("Model");fake.Name="Legendary Fruit Chest Blueprint";fake.Parent=workspace;task.wait(0.1)
@@ -40,18 +40,17 @@ local function run()
     local npcRoot=workspace:FindFirstChild("NPCs") or Instance.new("Folder",workspace);npcRoot.Name="NPCs"
     local npc=Instance.new("Model");npc.Name="Yome";local np=Instance.new("Part",npc);np.Anchored=true;np.Position=root.Position; npc.PrimaryPart=np;npc.Parent=npcRoot
     task.wait(0.1);check("Yome remains only a trainer",state.markers[npc] and state.markers[npc].category=="trainers");npc:Destroy()
-    local medal=Instance.new("Part");medal.Name="BlackLeg";medal.Anchored=true;medal.Position=root.Position;medal.Parent=workspace
-    state.pickupEvent("spawnfs",medal)
-    check("spawnfs pickup has explicit Black Leg identity",state.markers[medal] and state.markers[medal].category=="styleMedals" and state.markers[medal].blackleg)
+    local medal=Instance.new("Part");medal.Name="BlackLeg Medal";medal.Anchored=true;medal.Position=root.Position;medal.Parent=workspace.Effects
+    task.wait(0.1)
+    check("Black Leg name detector finds pickup",state.markers[medal] and state.markers[medal].category=="styleMedals" and state.markers[medal].blackleg)
     medal:Destroy();task.wait(0.1);check("collected Black Leg pickup marker removed",state.markers[medal]==nil)
-    local other=Instance.new("Part");other.Name="UnidentifiedToken";other.Anchored=true;other.Parent=workspace
-    state.pickupEvent("spawnfs",other);check("unknown style is not guessed",state.markers[other] and not state.markers[other].blackleg)
-    state.pickupEvent("spawnMedal",other);check("spawnMedal has independent category",state.markers[other] and state.markers[other].category=="medals");other:Destroy()
-    state.pickupEvent("spawnfs",nil);check("unavailable pickup handled",state.lastPickupEvent:find("unavailable")~=nil)
+    local other=Instance.new("Part");other.Name="Rokushiki Medal";other.Anchored=true;other.Parent=workspace.Effects;task.wait(0.1)
+    check("other fighting-style medal detected",state.markers[other] and not state.markers[other].blackleg)
+    other.Name="Gold Medal";task.wait(0.1);check("generic medal category",state.markers[other] and state.markers[other].category=="medals");other:Destroy()
     local beam=Instance.new("Model");beam.Name="medalPiller"
-    for _=1,2 do local p=Instance.new("Part");p.Anchored=true;p.Parent=beam;local mesh=Instance.new("SpecialMesh");mesh.MeshType=Enum.MeshType.Cylinder;mesh.Parent=p end
+    for _=1,2 do local p=Instance.new("Part");p.Anchored=true;p.Parent=beam end
     beam.Parent=workspace.Effects;task.wait(0.1)
-    check("existing exact medal beam shape detected",state.markers[beam] and state.markers[beam].category=="styleMedals");beam:Destroy()
+    check("temporary beam is not a pickup",state.markers[beam]==nil);beam:Destroy()
     local snap=state.snapshot();check("actual stat fields read",snap and snap.available==100 and snap.current.SwordMastery==0)
     state.fields.SwordMastery.Text="20";state.preview();check("stat preview requires confirmation",state.ui.modal~=nil and snap.stats.SwordMastery.Value==0)
     state.ui.modal:Destroy();state.ui.modal=nil

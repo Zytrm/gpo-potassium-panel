@@ -1,12 +1,30 @@
 local Core = {}
-Core.Version = "1.1.0"
+Core.Version = "1.2.0"
 -- Verified in ReplicatedStorage.Modules.Leveling.statValues in the inspected copy.
 Core.StatNames = {"Strength", "Defense", "Stamina", "GunMastery", "SwordMastery", "RokushikiMastery", "BlackLegMastery", "ElectroMastery", "DevilFruitMastery", "FishmanKarateMastery", "DragonClawMastery", "CyborgMastery", "FightingStyleMastery"}
-Core.Chests = {
-    ["Legendary Chest"] = "legendary", ["Legendary Fruit Chest"] = "legendary",
-    ["Mythical Chest"] = "mythic", ["Mythical Fruit Chest"] = "mythic",
-    ["Mythical Fruit Chest2"] = "mythic", ["Myth Chest"] = "mythic", ["Myth Chest (Discount)"] = "mythic",
-}
+-- Detection identifiers from the user-selected serpo222/minecraftGIPIO ESP scripts.
+Core.ChestMeshes = {["10779253534"]="common",["10788852296"]="rare",["10798559852"]="legendary",["10811929054"]="mythic"}
+Core.MedalStyles = {["BlackLeg Medal"]="blackleg",["Rokushiki Medal"]="rokushiki",["Fishman Karate Medal"]="fishman",["Vampire Medal"]="vampire"}
+function Core.assetId(value)
+    if type(value)~="string" then return nil end
+    return value:match("^rbxassetid://(%d+)$") or value:match("[?&]id=(%d+)") or value:match("^(%d+)$")
+end
+function Core.classifyEffect(name,class,meshIds)
+    local style=Core.MedalStyles[name]
+    if style then return "styleMedals",name,style end
+    if type(name)=="string" and name:find("Medal",1,true) then return "medals",name end
+    if class~="Model" then return nil end
+    local found
+    for _,mesh in ipairs(meshIds or {}) do
+        local category=Core.ChestMeshes[Core.assetId(mesh) or ""]
+        if category then
+            -- Conflicting known chest meshes do not establish one reliable rarity.
+            if found and found~=category then return nil end
+            found=category
+        end
+    end
+    if found then local titles={common="Common chest",rare="Rare chest",legendary="Legendary chest",mythic="Mythic chest"};return found,titles[found] end
+end
 -- Exact NPC fields in dialogue modules that call learnStyle/learnSkill.
 Core.Trainers = {Yi=true,Coro=true,Oliva=true,Sharon=true,Lifa=true,Jaggy=true,Yome=true,Jin=true,Teza=true,Puff=true,Musashi=true,AE10=true,Mei=true,Miguel=true,Tatter=true,Brv1n=true,Zorana=true,["Titan of Justice"]=true,["V Kirishima, The Shadow of Halloween"]=true,["Lord Cartier the 5th"]=true}
 function Core.finite(n)
@@ -18,7 +36,7 @@ function Core.copy(t)
     return out
 end
 function Core.defaults()
-    return {legendary=false,mythic=false,blackleg=false,styleMedals=false,medals=false,trainers=false,health=false,fruit=false,swim=false,
+    return {common=false,rare=false,legendary=false,mythic=false,blackleg=false,styleMedals=false,medals=false,trainers=false,health=false,fruit=false,swim=false,
         speed=30,distance=0,playerDistance=1500,markerLimit=40,forwardMode="Character",
         keys={forward="F6",anchor="F7",panel="RightShift"},profiles={}}
 end
@@ -61,7 +79,7 @@ end
 function Core.sanitize(raw, validKeys, schema)
     local c=Core.defaults()
     if type(raw)~="table" then return c end
-    for _,k in ipairs({"legendary","mythic","blackleg","styleMedals","medals","trainers","health","fruit","swim"}) do
+    for _,k in ipairs({"common","rare","legendary","mythic","blackleg","styleMedals","medals","trainers","health","fruit","swim"}) do
         if type(raw[k])=="boolean" then c[k]=raw[k] end
     end
     for k,bounds in pairs({speed={1,150},distance={0,100000},playerDistance={50,10000},markerLimit={5,80}}) do

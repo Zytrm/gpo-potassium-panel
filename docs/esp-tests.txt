@@ -1,0 +1,20 @@
+PASS existing trainer is discovered
+PASS empty chest waits for streamed mesh
+PASS late mesh triggers discovery
+PASS unrelated descendants do not duplicate marker
+PASS mesh ID changes reclassify
+PASS nested chest meshes are supported
+PASS streaming out last valid mesh removes marker
+PASS streaming mesh back restores one marker
+PASS collected chest is removed
+PASS returning chest is rediscovered
+PASS existing Black Leg medal is found without spawn event
+PASS renamed medal reclassifies
+PASS generic Medal names are supported
+PASS renamed nonmedal is removed
+PASS identical meshes outside Effects are ignored
+PASS replaced Effects folder resets old markers
+PASS pending events cannot resurrect after unload
+PASS unload disconnects all detector signals
+PASS detector starts before Effects exists
+19 detector lifecycle tests passed

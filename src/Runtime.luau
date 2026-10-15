@@ -135,8 +135,9 @@ end
 function state.stop()
     if not state.running then return end
     save();safetyReset();state.running=false
+    if state.worldESP then state.worldESP:Destroy() end
+    if state.highlightFolder then state.highlightFolder:Destroy() end
     for _,c in ipairs(state.connections) do c:Disconnect() end
-    for _,m in pairs(state.markers) do if m.connection then m.connection:Disconnect() end end
     for _,o in pairs(state.overlays) do for _,c in ipairs(o.connections) do c:Disconnect() end end
     ui.gui:Destroy()
     if env.GPOFieldKit==state then env.GPOFieldKit=nil end
@@ -188,116 +189,59 @@ track(UIS.InputBegan:Connect(function(input,processed)
     elseif input.KeyCode.Name==config.keys.anchor then setAnchor(not state.anchor)
     elseif input.KeyCode.Name==config.keys.panel then ui.panel.Visible=not ui.panel.Visible end
 end))
--- Local marker registry: exact verified item names, and trainers under Workspace.NPCs.
-local colors={legendary=Color3.fromRGB(255,204,94),mythic=Color3.fromRGB(239,137,255),blackleg=Color3.fromRGB(255,154,104),styleMedals=Color3.fromRGB(255,154,104),medals=Color3.fromRGB(155,238,152),trainers=Color3.fromRGB(116,220,225)}
+-- Repo-derived Effects mesh/name detectors feed our shared marker renderer.
+local colors={common=Color3.fromRGB(190,202,218),rare=Color3.fromRGB(93,179,255),legendary=Color3.fromRGB(255,204,94),mythic=Color3.fromRGB(239,137,255),blackleg=Color3.fromRGB(255,154,104),styleMedals=Color3.fromRGB(255,154,104),medals=Color3.fromRGB(155,238,152),trainers=Color3.fromRGB(116,220,225)}
 local overlayRoot=UI.make("Frame",{Name="WorldMarkers",BackgroundTransparency=1,Size=UDim2.fromScale(1,1)},ui.gui)
+local highlightFolder=UI.make("Folder",{Name="GPOFieldKitHighlights"},workspace)
+state.highlightFolder=highlightFolder
+local highlightPool={}
 local function removeMarker(o)
     local m=state.markers[o]
-    if m then if m.connection then m.connection:Disconnect() end;m.label:Destroy();state.markers[o]=nil end
-end
-local function markerCategory(o)
-    if not (o:IsA("Model") or o:IsA("Tool") or o:IsA("BasePart")) then return nil end
-    if not o:IsDescendantOf(workspace) then return nil end
-    local npcRoot=workspace:FindFirstChild("NPCs")
-    if o.Parent==npcRoot and Core.Trainers[o.Name] then return "trainers" end
-    -- Exact effect identity from MatchHandler.spawnfs, not arbitrary beams.
-    local effects=workspace:FindFirstChild("Effects")
-    if o:IsA("Model") and o.Name=="medalPiller" and o.Parent==effects then
-        local cylinders=0
-        for _,part in ipairs(o:GetChildren()) do local mesh=part:FindFirstChildOfClass("SpecialMesh");if part:IsA("BasePart") and mesh and mesh.MeshType==Enum.MeshType.Cylinder then cylinders+=1 end end
-        if cylinders==2 then return "styleMedals" end
+    if m then m.label:Destroy();state.markers[o]=nil end
+    for _,h in ipairs(highlightPool) do
+        if h.Adornee and (h.Adornee==o or h.Adornee:IsDescendantOf(o)) then h.Enabled=false;h.Adornee=nil end
     end
-    local category=Core.Chests[o.Name]
-    if not category then return nil end
-    local parent=o.Parent
-    while parent and parent~=workspace do
-        if Core.Chests[parent.Name] or parent==player.Character or Players:GetPlayerFromCharacter(parent) or parent.Name=="PlayerCharacters" or parent.Name=="Effects" then return nil end
-        parent=parent.Parent
-    end
-    return category
 end
-local function addMarker(o,category,display,event,blackleg)
+local function addMarker(o,category,display,style)
     if not state.running then return end
     removeMarker(o)
     local label=UI.make("TextLabel",{Name="Marker",BackgroundColor3=UI.Colors.bg,BackgroundTransparency=0.1,BorderSizePixel=0,TextColor3=colors[category],Font=Enum.Font.SourceSansSemibold,TextSize=14,Size=UDim2.fromOffset(228,24),AnchorPoint=Vector2.new(0.5,1),Visible=false,ZIndex=2},overlayRoot)
-    local m={label=label,category=category,display=display,event=event,blackleg=blackleg}
-    state.markers[o]=m
-    m.connection=o.AncestryChanged:Connect(function()
-        if event then if not o:IsDescendantOf(workspace) then removeMarker(o) end
-        elseif markerCategory(o)~=category then removeMarker(o) end
-    end)
+    state.markers[o]={label=label,category=category,display=display,blackleg=style=="blackleg"}
+    if category=="medals" or category=="styleMedals" then state.lastPickupEvent=display..": "..o:GetFullName() end
 end
-local function inspect(o)
-    if not state.running or state.markers[o] then return end
-    local category=markerCategory(o)
-    if category then addMarker(o,category,o.Name=="medalPiller" and "Fighting-style spawn · beam" or nil,false,false) end
-end
-local function isBlackLegPickup(o)
-    local function matches(value) return type(value)=="string" and value:gsub("%s",""):lower()=="blackleg" end
-    if matches(o.Name) then return true end
-    for _,value in pairs(o:GetAttributes()) do if matches(value) then return true end end
-    for _,child in ipairs(o:GetDescendants()) do
-        if child:IsA("StringValue") and matches(child.Value) or child:IsA("ProximityPrompt") and matches(child.ObjectText) then return true end
-    end
-    return false
-end
-local function pickupEvent(action,pickup)
-    if action~="spawnfs" and action~="spawnMedal" then return end
-    -- These argument positions are observed directly in MatchHandler._G.matchEvent.
-    if typeof(pickup)~="Instance" or not pickup:IsDescendantOf(workspace) or not (pickup:IsA("BasePart") or pickup:IsA("Model") or pickup:IsA("Tool")) then
-        state.lastPickupEvent=action..": pickup instance unavailable on this client";return
-    end
-    local blackleg=action=="spawnfs" and isBlackLegPickup(pickup)
-    local category=action=="spawnfs" and "styleMedals" or "medals"
-    local display=blackleg and "Black Leg medal" or (action=="spawnfs" and "Fighting-style medal · " or "Medallion · ")..pickup.Name
-    state.lastPickupEvent=action..": "..pickup:GetFullName()
-    addMarker(pickup,category,display,true,blackleg)
-end
-local boundMatchEvents
-local function bindMatchEvents(remote)
-    if boundMatchEvents or remote.Name~="matchEvents" or not remote:IsA("RemoteEvent") then return end
-    boundMatchEvents=remote;track(remote.OnClientEvent:Connect(pickupEvent))
-end
-if RS:FindFirstChild("matchEvents") then bindMatchEvents(RS.matchEvents) end
-track(RS.ChildAdded:Connect(bindMatchEvents))
-track(workspace.DescendantAdded:Connect(function(o) inspect(o) end))
-track(workspace.DescendantRemoving:Connect(removeMarker))
-task.spawn(function()
-    for i,o in ipairs(workspace:GetDescendants()) do
-        if not state.running then return end
-        inspect(o);if i%500==0 then task.wait() end
-    end
-end)
+state.worldESP=WorldESP.new(workspace,Core,addMarker,removeMarker,task.defer)
+local function inspect(o) state.worldESP:Inspect(o) end
 local function positionOf(o)
-    if o:IsA("BasePart") then return o.Position end
+    if o:IsA("BasePart") then return o.Position,o end
     local p=o:IsA("Model") and o.PrimaryPart or o:FindFirstChild("Handle")
     p=p or o:FindFirstChildWhichIsA("BasePart",true)
-    return p and p.Position
+    return p and p.Position,p
 end
 local countsLabel
 local function updateMarkers()
     local camera=workspace.CurrentCamera
     if not camera then return end
     local _,_,root=characterParts();local origin=root and root.Position or camera.CFrame.Position
-    local ranked={};local counts={legendary=0,mythic=0,blackleg=0,styleMedals=0,medals=0,trainers=0}
+    for _,h in ipairs(highlightPool) do h.Enabled=false;h.Adornee=nil end
+    local ranked={};local counts={common=0,rare=0,legendary=0,mythic=0,blackleg=0,styleMedals=0,medals=0,trainers=0}
     for o,m in pairs(state.markers) do
         m.label.Visible=false
         if o.Parent then
             counts[m.category]+=1
             if m.blackleg then counts.blackleg+=1 end
-            if config[m.category] or m.category=="styleMedals" and m.blackleg and config.blackleg then
-                local pos=positionOf(o)
+            if config[m.category] or m.category=="styleMedals" and (config.medals or m.blackleg and config.blackleg) then
+                local pos,part=positionOf(o)
                 if pos then local distance=(pos-origin).Magnitude
                     if config.distance==0 or distance<=config.distance then
                         local screen,visible=camera:WorldToScreenPoint(pos+Vector3.new(0,3,0))
-                        if visible then table.insert(ranked,{o=o,m=m,distance=distance,x=screen.X,y=screen.Y}) end
+                        if visible then table.insert(ranked,{o=o,m=m,distance=distance,x=screen.X,y=screen.Y,part=part}) end
                     end
                 end
             end
         end
     end
     table.sort(ranked,function(a,b) return a.distance<b.distance end)
-    local occupied={};local shown=0
+    local occupied={};local shown=0;local highlighted=0
     for _,r in ipairs(ranked) do
         if shown>=config.markerLimit then break end
         local clear=true
@@ -306,9 +250,19 @@ local function updateMarkers()
             shown+=1;table.insert(occupied,Vector2.new(r.x,r.y));r.m.label.Position=UDim2.fromOffset(r.x,r.y)
             local name=r.m.display or r.o.Name
             r.m.label.Text=name.."  |  "..math.floor(r.distance).." st";r.m.label.Visible=true
+            if r.m.category~="trainers" and highlighted<20 then
+                highlighted+=1
+                local h=highlightPool[highlighted]
+                if not h then
+                    h=UI.make("Highlight",{Name="PickupOutline",DepthMode=Enum.HighlightDepthMode.AlwaysOnTop,FillTransparency=0.75,OutlineTransparency=0.1,Enabled=false},highlightFolder)
+                    highlightPool[highlighted]=h
+                end
+                h.Adornee=(r.o:IsA("Model") or r.o:IsA("BasePart")) and r.o or r.part
+                h.FillColor=colors[r.m.category];h.OutlineColor=colors[r.m.category];h.Enabled=true
+            end
         end
     end
-    if countsLabel then countsLabel.Text=string.format("LEG %d   MYTH %d   BLACK LEG %d   STYLE %d   MEDAL %d",counts.legendary,counts.mythic,counts.blackleg,counts.styleMedals,counts.medals) end
+    if countsLabel then countsLabel.Text=string.format("CHESTS C%d R%d L%d M%d  /  MEDALS %d · BL %d",counts.common,counts.rare,counts.legendary,counts.mythic,counts.medals+counts.styleMedals,counts.blackleg) end
 end
 -- Player overlays have one registry and event-driven health/fruit updates.
 local function removeOverlay(p)
@@ -362,7 +316,7 @@ local pages=ui.pages
 ui:heading(pages.ESP,"Radar","Separate categories. Nearest labels take priority when markers overlap.")
 countsLabel=ui:note(pages.ESP,"SCANNING…",22)
 local espControls=ui:grid(pages.ESP)
-for _,entry in ipairs({{"legendary","Legendary chests"},{"mythic","Mythic chests"},{"blackleg","Black Leg medals"},{"styleMedals","All style medals"},{"medals","Other medals"},{"trainers","Trainers"}}) do
+for _,entry in ipairs({{"common","Common chests"},{"rare","Rare chests"},{"legendary","Legendary chests"},{"mythic","Mythic chests"},{"blackleg","Black Leg medals"},{"styleMedals","Style medals"},{"medals","All medals"},{"trainers","Trainers"}}) do
     local key,label=entry[1],entry[2]
     ui:toggle(espControls,label,function() return config[key] end,function(on) config[key]=on;scheduleSave();updateMarkers() end,"Tracks exact known identities as objects stream in and out. It cannot reveal objects absent from this client.")
 end
@@ -376,7 +330,7 @@ local espFields=ui:grid(pages.ESP,2,28)
 numeric(espFields,"Range · 0 = all","distance",0,100000)
 numeric(espFields,"Markers","markerLimit",5,80)
 local streamingNote=ui:note(pages.ESP,"STREAMED ONLY  /  LIVE SPAWNS",20)
-ui:hint(streamingNote,"Medals follow spawnfs / spawnMedal. Black Leg needs an explicit pickup identity; enable all styles for unidentified beams. Existing beams last 21 seconds. Pickup markers follow object lifetime. Streaming still applies.")
+ui:hint(streamingNote,"Medals use Effects pickup names; chests use mesh IDs from the selected repo. One marker per pickup. Streaming still applies.")
 ui:heading(pages.Movement,"Motion","Forward adds collision-checked displacement, independent of WalkSpeed.")
 local motionControls=ui:grid(pages.Movement)
 refreshForward=ui:toggle(motionControls,"Forward",function() return state.forward end,setForward,"Starts off after loading, death, respawn, and teleport. Enabling it releases Anchor.")
@@ -596,6 +550,6 @@ track(Run.Heartbeat:Connect(function(dt)
 end))
 -- Initial UI status and a direct API for repeatable Studio fixture tests.
 state.setForward=setForward;state.setAnchor=setAnchor;state.safetyReset=safetyReset;state.inspect=inspect;state.updateMarkers=updateMarkers;state.ui=ui;state.snapshot=snapshot
-state.preview=preview;state.fields=fields;state.Core=Core;state.applyProfile=runProfile;state.pickupEvent=pickupEvent
+state.preview=preview;state.fields=fields;state.Core=Core;state.applyProfile=runProfile
 status("READY  /  FORWARD + ANCHOR OFF")
 return state

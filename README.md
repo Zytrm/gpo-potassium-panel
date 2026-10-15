@@ -28,12 +28,17 @@ All toggles start off on a fresh configuration. Safe display preferences and swi
 
 ### ESP
 
-- Legendary and mythic chest categories use exact item identities verified in `ToolDesc` / `FruitChestOdds`, excluding blueprints, inventory items, held items, and opening effects. Labels show distance. **Live spawned chest-model classification is unverified**: there were no chest objects in the supplied copy. `LuckyChestV1`/`LuckyChestV2` are deliberately not assigned a rarity because no authoritative mapping was available.
-- **Black Leg medals**, **all fighting-style medals and spawn beams**, and **other medallions** have independent controls. The script listens to the observed `matchEvents` actions `spawnfs` and `spawnMedal`, following the pickup instance supplied by the game. Black Leg is recognized from an explicit `BlackLeg` identity in the pickup name, string metadata, or prompt text. Unidentified styles remain generic; beam colors are not guessed.
-- Existing `Workspace.Effects.medalPiller` models with the observed two-cylinder structure are labeled as temporary fighting-style **spawn beams**, rather than as confirmed uncollected pickups. The game's effect lasts 21 seconds. An event-tracked pickup stays marked until it leaves Workspace. The distinction prevents the disappearing visual effect from being presented as the full pickup lifetime.
-- Trainer ESP is separate and uses exact identities from the game's dialogue modules. Yome appears here as a trainer; he is not the Black Leg medal.
-- One initial scan plus descendant events maintains the registry. A shared update runs about 6 times/second, limits visible labels, prioritizes nearby objects, and suppresses overlapping marker labels.
-- A client script cannot detect objects that have never replicated or streamed in. Spawn events received after loading can provide an instance; missing instance payloads are recorded in Settings. Historical unseen pickup locations cannot be recovered. No forced map streaming or server registry is claimed.
+Version 1.2 replaces the previous chest-name and medal-event detectors with the identifiers from the user-selected [serpo222/minecraftGIPIO](https://github.com/serpo222/minecraftGIPIO) scripts, integrated into the existing RGB panel.
+
+- **Common, Rare, Legendary, Mythic chests:** mesh IDs identify Models under `Workspace.Effects`, independent of their generated names. Every mesh is checked, including nested parts that arrive later through streaming.
+- **Black Leg medals:** finds `Workspace.Effects["BlackLeg Medal"]` already present when loading and tracks subsequent spawns. A single marker covers the pickup, including its nested `Part` structure.
+- **Style medals:** covers the referenced Black Leg, Rokushiki, Fishman Karate, and Vampire pickup names. **All medals** additionally covers other Effects objects whose name contains `Medal`, using the reference script's generic detector.
+- Trainer ESP remains separate. Temporary `medalPiller` beam effects are not presented as uncollected medals.
+- Detection is event-driven with cached root objects and mesh-property listeners. Missing/replaced Effects folders, late mesh assignment, name changes, collection, despawning, and streaming are handled. Repeated toggles cannot accumulate scans, connections, or duplicate labels.
+- Nearby labels show distance and use the panel's range/marker limits. Up to 20 visible pickups receive reusable through-wall highlights; the invalid `Highlight.Color` assignment in the reference is replaced by `FillColor` and `OutlineColor`.
+- A client cannot reveal objects that have not replicated or streamed in. Range changes affect display limits, not server replication. The reference's 1500/3000/50000 variants use the same detector, so this panel keeps one configurable range rather than loading separate scripts.
+
+See [ESP adaptation notes](docs/esp-adaptation.md) for the exact IDs, provenance, and fixes. No third-party UI library or remote ESP script executes at runtime.
 
 ### Movement and players
 
@@ -64,14 +69,15 @@ Settings and profiles save automatically to `GPOFieldKit/config-<game-id>-<user-
 ## Validation
 
 - Luau 0.740: main, bootstrap, and test scripts compile.
-- **21 pure Luau tests pass**: numerical validation, total point conservation, reset planning, saved settings, conflicting bindings, exact identity matching, and movement at 15/30/60/144/240 FPS.
+- **30 pure Luau tests pass**: numerical validation, point budgets, reset planning, saved settings, bindings, all referenced mesh/name detectors, and movement at 15/30/60/144/240 FPS.
+- **19 isolated detector lifecycle tests pass**: initial/late discovery, nested meshes, property updates, collection, folder replacement, duplicate prevention, and unload/disconnection. These use an instance/signal test double; they do not certify live-game replication.
 - **39 Roblox Studio client fixture checks passed on v1.0**: startup, all tabs, collapse/expand, motion, wall collision, midair Anchor, cleanup, chest/trainer/medal lifecycle, unknown-style handling, stat preview, sequential allocation, reset essence consumption, native swim baseline changes/nonstacking/restoration, death and unload.
-- The v1.1 compact RGB UI compiles, passes the 21 core tests, and was inspected visually. The v1.1 Studio regression was interrupted when Studio was closed; it is not claimed as passed. The compact controls target desktop use.
+- The v1.1 compact RGB UI was inspected visually. Version 1.2 compiles and passes the local tests above. Studio remains closed, so no new Studio or Potassium runtime pass is claimed. The compact controls target desktop use.
 
-The stat test server is a deliberately simple test double using the observed remote protocol, **not the real GPO server**. Actual live chest spawns, medal metadata, multiplayer health/fruit changes, custom swimming, teleporting, filesystem access in Potassium, and live stat acceptance remain to be verified in-game. Fixture reports are in [docs](docs/).
+The stat test server is a deliberately simple test double using the observed remote protocol, **not the real GPO server**. Live mesh/name compatibility, multiplayer health/fruit changes, custom swimming, teleporting, filesystem access in Potassium, and live stat acceptance remain to be verified in-game. Fixture reports are in [docs](docs/).
 
 ## Source and rebuilding
 
-Edit `src/Core.luau`, `src/UI.luau`, or `src/Runtime.luau`, then run `./build.ps1` to regenerate `main.luau`. Tests are in `tests/`; only `main.luau` and `bootstrap.luau` are needed to execute.
+Edit `src/Core.luau`, `src/UI.luau`, `src/WorldESP.luau`, or `src/Runtime.luau`, then run `./build.ps1` to regenerate `main.luau`. Tests are in `tests/`; only `main.luau` and `bootstrap.luau` are needed to execute.
 
 See [hitbox feasibility](docs/hitbox-feasibility.md) for the requested reach investigation.
