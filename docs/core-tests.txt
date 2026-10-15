@@ -1,0 +1,22 @@
+PASS finite rejects NaN and infinity
+PASS invalid points rejected
+PASS unsupported fields rejected
+PASS missing fields become zero
+PASS additive plan only spends unallocated points
+PASS additive insufficient points rejected
+PASS lowering a stat requires reset
+PASS reset conserves total point budget
+PASS missing current values rejected
+PASS profile names bounded
+PASS configuration excludes disruptive actions
+PASS configuration clamps numeric inputs
+PASS bad config values use defaults
+PASS conflicting saved bindings revert to defaults
+PASS key conflicts do not mutate bindings
+PASS profiles survive valid config roundtrip
+PASS configuration has independent nested state
+PASS movement is frame-rate independent
+PASS large frame stalls are bounded
+PASS chest matching excludes blueprints and unrelated names
+PASS trainer catalogue uses exact identities
+21 tests passed

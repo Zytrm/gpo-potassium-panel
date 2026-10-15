@@ -1,0 +1,3 @@
+[2026-10-15T14:09:22.208Z] [seq=1] [info] [WEPPY_TEST]:START:{"mode":"play","startedAt":1792073362208,"testName":"GPO Field Kit final release regression"}
+[2026-10-15T14:09:28.060Z] [seq=2] [info] [FIELDKIT QA] 39 client checks passed
+[2026-10-15T14:09:28.060Z] [seq=3] [info] [WEPPY_TEST]:FINISHED:{"mode":"play","startedAt":1792073362208,"testName":"GPO Field Kit final release regression","durationMs":5851,"errorMessage":"","passed":true,"finishedAt":1792073368060}
