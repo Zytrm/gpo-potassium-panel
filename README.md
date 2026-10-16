@@ -18,13 +18,15 @@ The implementation uses Roblox APIs plus Potassium's `game:HttpGet`, `loadstring
 
 | Control | Behavior |
 | --- | --- |
-| F6 | Toggle forward motion, initially 30 studs/second. |
+| F6 (default) | Toggle forward motion, initially 30 studs/second. Change it in **MOVE → Move key**: click the button, then press your preferred key. |
 | F7 | Anchor/release your character at its current position. |
 | Right Shift | Show/hide the panel while keeping enabled overlays active. |
 | Header | Drag the panel. `–` collapses it; `×` unloads and restores modified properties. |
 | Settings | Reassign keys, save, inspect the latest medal event, or unload. |
 
 All toggles start off on a fresh configuration. Safe display preferences and swim preference restore on subsequent runs. Forward movement, Anchor, and stat application always require fresh activation.
+
+Movement-key changes save automatically and stay synchronized with the Forward binding in SETUP. Conflicting keys are rejected; Escape cancels reassignment. Hotkeys do not fire while typing.
 
 ### ESP
 

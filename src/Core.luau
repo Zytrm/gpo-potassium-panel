@@ -1,5 +1,5 @@
 local Core = {}
-Core.Version = "1.2.0"
+Core.Version = "1.2.1"
 -- Verified in ReplicatedStorage.Modules.Leveling.statValues in the inspected copy.
 Core.StatNames = {"Strength", "Defense", "Stamina", "GunMastery", "SwordMastery", "RokushikiMastery", "BlackLegMastery", "ElectroMastery", "DevilFruitMastery", "FishmanKarateMastery", "DragonClawMastery", "CyborgMastery", "FightingStyleMastery"}
 -- Detection identifiers from the user-selected serpo222/minecraftGIPIO ESP scripts.
